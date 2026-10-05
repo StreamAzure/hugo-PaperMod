@@ -1,0 +1,79 @@
+/* ============================================================
+   文章页右侧「固定跟随」目录栏
+   由 .github/build/ 挂进主题的 assets/css/extended/，
+   会被 PaperMod 自动合并进主样式表（它用 resources.Match 收这个目录）。
+
+   结构依据（PaperMod v8 的文章页直接子元素）：
+     article.post-single
+       ├─ header.post-header     标题 + 面包屑 + meta
+       ├─ details.toc            目录块
+       └─ div.post-content       正文
+
+   宽屏时把 .toc 放到右列，与正文**同一行**，然后 sticky 跟随滚动。
+   窄屏（< 1100px）完全不动，保持主题原本的折叠样式。
+
+   踩过的坑：一开始给 .toc 写 grid-row: 1 / -1，结果它落进了标题那一行，
+   出现在标题上方。必须显式指定到第 2 行（正文所在行）。
+   ============================================================ */
+
+@media (min-width: 1100px) {
+  article.post-single {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    column-gap: 2.5rem;
+    align-items: start;
+  }
+
+  /* 标题占满整行 */
+  article.post-single > .post-header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  /* 正文：左列，与目录同一行 */
+  article.post-single > .post-content {
+    grid-column: 1;
+    grid-row: 2;
+    min-width: 0;
+  }
+
+  /* 目录：右列，固定跟随滚动 */
+  article.post-single > .toc {
+    grid-column: 2;
+    grid-row: 2;
+    position: sticky;
+    top: 84px;
+    align-self: start;
+    max-height: calc(100vh - 7rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  article.post-single > .toc .inner {
+    padding-inline-start: 0.75rem;
+    border-inline-start: 1px solid var(--border);
+  }
+
+  article.post-single > .toc summary {
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+  }
+
+  /* 目录很长时用细滚动条，别喧宾夺主 */
+  article.post-single > .toc::-webkit-scrollbar {
+    width: 6px;
+  }
+  article.post-single > .toc::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+
+  /* 其余直接子元素（上下篇导航、评论等）回到整行，落在正文下方 */
+  article.post-single > *:not(.post-header):not(.post-content):not(.toc) {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+}

@@ -1,4 +1,60 @@
-{{- /* Head custom content area start */ -}}
-{{- /*     Insert any custom code (web-analytics, resources, etc.) - it will appear in the <head></head> section of every page. */ -}}
-{{- /*     Can be overwritten by partial with the same name in the global layouts. */ -}}
-{{- /* Head custom content area end */ -}}
+{{- /* ============================================================
+     PaperMod 的 head 扩展点（官方预留的 partial，主题里原本只有注释）。
+     构建时本文件会被复制到主题的 layouts/_partials/extend_head.html，
+     于是每页 </head> 之前都会插入下面这段。
+
+     只做一件事：按需加载自托管的 KaTeX 渲染数学公式。
+     - 页面正文里没有 $ 就一个字节都不下载
+     - KaTeX 来自本站 /katex/（不依赖外部 CDN，国内访问稳定，离线也能看）
+
+     两个踩过的坑，别改回去：
+     1. 这段代码在 <head> 里执行，此时正文还没解析完，直接
+        document.querySelector('.post-content') 一定拿到 null。
+        必须等 DOMContentLoaded。
+     2. 数学分隔符必须与 hugo.yaml 里 markup.goldmark.extensions.passthrough
+        的 delimiters 一致，否则公式会被渲染两遍或渲染不到。
+     ============================================================ */ -}}
+
+<script>
+  (function () {
+    function boot() {
+      var body = document.querySelector('.post-content');
+      if (!body) return;
+      var text = body.textContent || '';
+      if (text.indexOf('$') === -1 && text.indexOf('\\(') === -1) return;
+
+      var base = '/katex/';
+
+      var css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = base + 'katex.min.css';
+      document.head.appendChild(css);
+
+      var js = document.createElement('script');
+      js.src = base + 'katex.min.js';
+      js.onload = function () {
+        var ar = document.createElement('script');
+        ar.src = base + 'contrib/auto-render.min.js';
+        ar.onload = function () {
+          renderMathInElement(body, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '\\[', right: '\\]', display: true },
+              { left: '$', right: '$', display: false },
+              { left: '\\(', right: '\\)', display: false }
+            ],
+            throwOnError: false
+          });
+        };
+        document.head.appendChild(ar);
+      };
+      document.head.appendChild(js);
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
+    }
+  })();
+</script>

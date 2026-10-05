@@ -84,6 +84,37 @@ PaperMod consistently scores near-perfect results on [Pagespeed Insights](https:
 
 ---
 
+## 本 fork 的站点定制
+
+这个 fork 是 [StreamAzure](https://github.com/StreamAzure) 给站点
+**https://streamazure.github.io/** 用的，在上游基础上加了三处东西。
+上游更新时只要不冲突就不会被覆盖（两个是新增文件，一个是覆盖上游的空壳）。
+
+| 路径 | 作用 |
+| --- | --- |
+| `assets/css/extended/toc-sidebar.css` | 宽屏（≥1100px）下把文章目录变成**右侧固定跟随**栏；窄屏不动，保持主题原本的折叠样式 |
+| `layouts/_partials/extend_head.html` | 覆盖上游的空壳，按需加载**自托管 KaTeX** 渲染数学公式；页面没有 `$` 时一个字节都不下载 |
+| `static/katex/` | KaTeX 本体（JS + CSS + 20 个字体，约 550 KB），发布到站点根 `/katex/`，不依赖外部 CDN |
+
+### 改这几处前必读
+
+1. **`extend_head.html` 在 `<head>` 里执行**，那时正文还没解析完，直接
+   `document.querySelector('.post-content')` 一定拿到 `null`。必须包一层 `DOMContentLoaded`。
+2. **目录栏的 `grid-row` 必须写 `2`**，不能写 `1 / -1`：写 `1 / -1` 会让目录落进标题那一行，
+   跑到标题上方去。
+3. **数学分隔符要和站点配置一致**：`hugo.yaml` 里
+   `markup.goldmark.extensions.passthrough.delimiters` 必须和这里的
+   `renderMathInElement` 的 `delimiters` 对齐，否则公式会渲染两遍或渲染不到。
+4. **`static/katex/` 是手工放的**（来自 npm 包 `katex@0.16.11` 的 `dist/`）。
+   要升级版本就整个目录替换，注意 `fonts/` 要一起换。
+
+> ⚠️ 站点仓库（`StreamAzure.github.io`）在构建时会用 `.github/build/` 下的同名文件
+> **覆盖**这里的 `toc-sidebar.css` 和 `extend_head.html`。
+> 也就是说：**这两个文件的"生效版本"以站点仓库的 `.github/build/` 为准**，
+> 只改这个 fork 不改站点仓库，线上不会有变化。
+
+---
+
 ## Special Thanks 🌟
 
 - [Highlight.js](https://github.com/highlightjs/highlight.js)
