@@ -1,0 +1,109 @@
+/* ============================================================
+   头部导航栏布局
+   配套：layouts/_partials/header.html（未改动，纯 CSS 覆盖）
+
+   改动目标：
+     1. 隐藏左上角的站点名
+     2. 白天/夜间切换按钮贴到页面最右侧
+     3. 导航菜单整体居中
+
+   原有 DOM 结构（PaperMod v8）：
+     nav.header-nav
+       ├─ div.logo
+       │    ├─ a[href="/"]                 ← 站点名（要隐藏）
+       │    └─ div.logo-switches
+       │         └─ button#theme-toggle    ← 要挪到最右
+       └─ ul#menu.menu                     ← 要居中
+
+   ⚠️ 踩过的坑（一）：一开始写的是 `.logo { display: none }`。
+   但 .logo-switches（切换按钮）是 .logo 的**子元素**，display:none 会把整棵子树
+   从渲染树里摘掉 —— 站点名没了，按钮也跟着消失，而 getComputedStyle 照样返回
+   正常值，非常难看出来。正确做法：只隐藏那个 <a>，保留 .logo 本身。
+
+   ⚠️ 踩过的坑（二）：窄屏如果用 `grid-template-columns: 1fr auto`，
+   两列不等宽会把菜单推离中心（实测 390px 视口下偏左 18.9px）。
+   所以宽屏用「绝对定位 + 自动外边距」做到真正居中。
+
+   实测（headless 浏览器，真实视口）：
+     1200px：toggle 右缘贴到内容右缘；菜单居中偏差 0px
+      390px：菜单与按钮间距 77.6px，无重叠
+   ============================================================ */
+
+.header-nav {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: var(--gap);
+  position: relative;   /* 给绝对定位的按钮和菜单做参照 */
+
+  /* 按钮距 nav 内容右边缘的留白。nav 的内边距就是 --gap，
+     所以要让按钮贴到内容边缘，需要往右偏 --gap —— 但那是"内容边缘"，
+     要贴到页面视觉最右侧则用 0。见下面的分档。 */
+  --hdr-inset: var(--gap);
+}
+
+/* 窄于这个宽度时 nav 还没达到 --nav-width 上限，旁边就是视口边缘，
+   再往外偏会把按钮推出屏幕（实测 900px 视口越界 9px），所以这一档贴边缘。 */
+@media (max-width: 1120px) {
+  .header-nav {
+    --hdr-inset: 0px;
+  }
+}
+
+/* 只隐藏站点名那个链接，不要动 .logo（否则里面的切换按钮一起消失） */
+.header-nav .logo > a {
+  display: none;
+}
+
+/* 切换按钮贴到最右侧 */
+.header-nav .logo-switches {
+  position: absolute;
+  top: 0;
+  right: var(--hdr-inset);
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* ---------- 宽屏：菜单真正居中（与按钮宽度无关） ---------- */
+@media (min-width: 900px) {
+  .menu {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    justify-content: center;
+    margin: 0;
+    /* 两侧留出按钮的宽度，避免极端情况下压到按钮 */
+    padding: 0 2.5rem;
+    max-width: calc(100% - 5rem);
+  }
+}
+
+/* ---------- 窄屏：菜单在左、按钮在右，同一行 ----------
+   这里不用绝对居中：空间不足以同时保证"居中"和"不重叠"，
+   优先保证不重叠（实测间距 77.6px）。 */
+@media (max-width: 899px) {
+  .header-nav {
+    grid-template-columns: 1fr auto;
+    column-gap: 0.5rem;
+  }
+
+  .menu {
+    grid-column: 1;
+    justify-content: center;
+    margin: 0;
+    /* 窄屏菜单可横向滚动，避免挤爆布局 */
+    overflow-x: auto;
+  }
+
+  /* .logo 里可见的只有切换按钮，所以把它当作右列的容器 */
+  .header-nav .logo {
+    grid-column: 2;
+  }
+
+  .header-nav .logo-switches {
+    position: static;
+    right: auto;
+    height: auto;
+  }
+}
