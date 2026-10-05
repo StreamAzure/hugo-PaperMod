@@ -1,5 +1,5 @@
 {{- /*
-  分类（taxonomy）总览页：把扁平的术语列表渲染成「一级分类 → 二级分类 → 文章」的结构。
+  分类总览页（/categories/）——对应 Hugo 的 Kind = "taxonomy"。
 
   为什么要自己写：
     1. Hugo 只会为叶子术语生成页面（`categories/技术笔记/前端/`），
@@ -9,12 +9,13 @@
   分类的层级直接由术语名推导：`技术笔记/前端` 的一级是 `技术笔记`，二级是 `前端`；
     `使用说明`（不含斜杠）就是一级分类本身，没有二级。
   所以笔记的 front matter 不需要任何额外字段，只写 categories: ["一级/二级"] 即可。
+
+  单个分类的文章列表页（Kind = "term"）用的是 layouts/_default/term.html。
 */ -}}
 
 {{- define "main" }}
 
 {{- $type := .Data.Plural }}                          {{/* "categories" */}}
-{{- $name := .Data.Singular }}                        {{/* "category" */}}
 
 {{- if .Title }}
 <header class="page-header">
@@ -46,7 +47,7 @@
 
 <div class="cat-overview">
   {{- range $top, $items := $groups }}
-    {{- /* 父分类的文章 = 它所有子分类文章的并集（按标题去重） */ -}}
+    {{- /* 父分类的文章 = 它所有子分类文章的并集（按 RelPermalink 去重） */ -}}
     {{- $seen := slice }}
     {{- $posts := slice }}
     {{- range $items }}
