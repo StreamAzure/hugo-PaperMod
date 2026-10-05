@@ -36,9 +36,13 @@
   column-gap: var(--gap);
   position: relative;   /* 给绝对定位的按钮和菜单做参照 */
 
-  /* 按钮距 nav 内容右边缘的留白。nav 的内边距就是 --gap，
-     所以要让按钮贴到内容边缘，需要往右偏 --gap —— 但那是"内容边缘"，
-     要贴到页面视觉最右侧则用 0。见下面的分档。 */
+  /* ⚠️ 必须有这一条。下面把 .menu 改成绝对定位后，nav 里在没有普通流内容，
+     nav 的高度会塌成 0 —— 整个 header 高度归零，菜单溢出到 header 外面被裁掉
+     （实测 .menu 的 top 变成 -30px，导航文字只剩一半）。
+     用主题自己的高度变量撑住，跟主题行为保持一致。 */
+  min-height: var(--header-height);
+
+  /* 按钮距 nav 内容右边缘的留白。默认贴内容边缘；窄屏分档见下。 */
   --hdr-inset: var(--gap);
 }
 
@@ -90,9 +94,10 @@
 
   .menu {
     grid-column: 1;
+    position: static;      /* 窄屏还原回普通流，nav 自然有高度 */
+    transform: none;
     justify-content: center;
     margin: 0;
-    /* 窄屏菜单可横向滚动，避免挤爆布局 */
     overflow-x: auto;
   }
 
