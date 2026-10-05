@@ -1,0 +1,15 @@
+# 上游没有这个文件。加它是因为本站点在 static/ 下放了 KaTeX 的字体，
+# 应该明确标记为二进制，避免任何 text=auto 的处理碰到它们。
+# （git 通常能靠内容嗅探识别，这里是显式兜底。）
+
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.eot   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary

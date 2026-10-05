@@ -1,0 +1,96 @@
+{{- /*
+  分类（taxonomy）总览页：把扁平的术语列表渲染成「一级分类 → 二级分类 → 文章」的结构。
+
+  为什么要自己写：
+    1. Hugo 只会为叶子术语生成页面（`categories/技术笔记/前端/`），
+       不会有 `categories/技术笔记/` 这种父级页面；
+    2. 主题默认的 taxonomy.html 只是 Alphabetical 平铺列表，没有层级概念。
+
+  分类的层级直接由术语名推导：`技术笔记/前端` 的一级是 `技术笔记`，二级是 `前端`；
+    `使用说明`（不含斜杠）就是一级分类本身，没有二级。
+  所以笔记的 front matter 不需要任何额外字段，只写 categories: ["一级/二级"] 即可。
+*/ -}}
+
+{{- define "main" }}
+
+{{- $type := .Data.Plural }}                          {{/* "categories" */}}
+{{- $name := .Data.Singular }}                        {{/* "category" */}}
+
+{{- if .Title }}
+<header class="page-header">
+  <h1>{{ .Title }}</h1>
+  {{- with .Description }}
+  <div class="post-description">{{ . }}</div>
+  {{- end }}
+</header>
+{{- end }}
+
+{{- /* 把所有术语按一级分类分组 */ -}}
+{{- $groups := dict }}
+{{- range .Data.Terms.Alphabetical }}
+  {{- $termName := .Name }}
+  {{- $parts := split $termName "/" }}
+  {{- $top := index $parts 0 }}
+  {{- $sub := "" }}
+  {{- if gt (len $parts) 1 }}
+    {{- $sub = delimit (after 1 $parts) "/" }}
+  {{- end }}
+  {{- $existing := index $groups $top | default slice }}
+  {{- $groups = merge $groups (dict $top ($existing | append (dict
+        "term" $termName "sub" $sub "count" .Count "page" (.Page | default (site.GetPage (printf "/%s/%s" $type $termName)))))) }}
+{{- end }}
+
+{{- if eq (len $groups) 0 }}
+  <p class="cat-empty">还没有任何分类。在笔记的 front matter 里写 <code>categories: ["分类名"]</code> 即可。</p>
+{{- end }}
+
+<div class="cat-overview">
+  {{- range $top, $items := $groups }}
+    {{- /* 父分类的文章 = 它所有子分类文章的并集（按标题去重） */ -}}
+    {{- $seen := slice }}
+    {{- $posts := slice }}
+    {{- range $items }}
+      {{- with site.GetPage (printf "/%s/%s" $type .term) }}
+        {{- range .Pages }}
+          {{- if not (in $seen .RelPermalink) }}
+            {{- $seen = $seen | append .RelPermalink }}
+            {{- $posts = $posts | append . }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- $posts = sort $posts "Date" "desc" }}
+
+    <section class="cat-group">
+      <header class="cat-group-head">
+        <h2 class="cat-group-title">{{ $top }}</h2>
+        <span class="cat-group-count">{{ len $posts }} 篇</span>
+      </header>
+
+      {{- if gt (len $items) 1 }}
+      <ul class="cat-subs">
+        {{- range $items }}
+          {{- if .sub }}
+          <li><a href="{{ with .page }}{{ .RelPermalink }}{{ else }}{{ printf "/%s/%s/" $type .term | relURL }}{{ end }}">{{ .sub }}</a><span>{{ .count }}</span></li>
+          {{- end }}
+        {{- end }}
+      </ul>
+      {{- end }}
+
+      {{- if $posts }}
+      <ul class="cat-posts">
+        {{- range $posts }}
+        <li>
+          <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+          <time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "2006-01-02" }}</time>
+        </li>
+        {{- end }}
+      </ul>
+      {{- else }}
+      <p class="cat-empty">这个分类下还没有笔记。</p>
+      {{- end }}
+    </section>
+  {{- end }}
+</div>
+
+{{- end }}{{/* end main */ -}}

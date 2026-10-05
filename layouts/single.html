@@ -45,9 +45,11 @@
   {{- partial "extend_post_content.html" . }}
 
   <footer class="post-footer">
-    {{- $tags := .Language.Params.Taxonomies.tag | default "tags" }}
+    {{- /* 本站点只用分类、不用标签，所以这里列分类而不是标签。
+           原版是 {{ $tags := .Language.Params.Taxonomies.tag | default "tags" }}，
+           在关闭 tag taxonomy 之后会渲染出一个空的 <ul>，所以改掉。 */}}
     <ul class="post-tags">
-      {{- range ($.GetTerms $tags) }}
+      {{- range ($.GetTerms "categories") }}
       <li><a href="{{ .Permalink }}">{{ .LinkTitle }}</a></li>
       {{- end }}
     </ul>

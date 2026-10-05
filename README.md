@@ -95,6 +95,30 @@ PaperMod consistently scores near-perfect results on [Pagespeed Insights](https:
 | `assets/css/extended/toc-sidebar.css` | 宽屏（≥1100px）下把文章目录变成**右侧固定跟随**栏；窄屏不动，保持主题原本的折叠样式 |
 | `layouts/_partials/extend_head.html` | 覆盖上游的空壳，按需加载**自托管 KaTeX** 渲染数学公式；页面没有 `$` 时一个字节都不下载 |
 | `static/katex/` | KaTeX 本体（JS + CSS + 20 个字体，约 550 KB），发布到站点根 `/katex/`，不依赖外部 CDN |
+| `layouts/_default/terms.html` | 分类总览页：把扁平的术语列表渲染成「一级分类 → 二级分类 → 文章」的层级视图 |
+| `assets/css/extended/categories.css` | 上面那个层级视图的样式 |
+| `layouts/single.html` | 改了文章页底部：上游写死显示 **tags**，本站点只用 categories，不改会渲染出一个空的 `<ul>` |
+
+### 分类的层级是怎么来的
+
+站点只启用 `categories` 一个 taxonomy（`hugo.yaml` 里关掉了 `tags`）。
+层级不需要额外字段，直接由术语名推导：
+
+```yaml
+categories: ["技术笔记/前端"]   # 一级「技术笔记」+ 二级「前端」
+categories: ["读书笔记"]        # 只有一级
+```
+
+Hugo 只会为**叶子**术语生成页面（`/categories/技术笔记/前端/`），不会生成
+`/categories/技术笔记/`。想要父级页也能点、并且聚合子分类的文章，
+就得在 front matter 里把一级也写上：
+
+```yaml
+categories: ["技术笔记/前端", "技术笔记"]
+```
+
+`terms.html` 仍会把同一个一级下所有子分类的文章合并去重展示，
+所以用 `/` 写法时**不会重复出现同一篇**。
 
 ### 改这几处前必读
 
