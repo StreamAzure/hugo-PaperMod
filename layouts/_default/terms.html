@@ -2,13 +2,22 @@
   分类总览页（/categories/）——对应 Hugo 的 Kind = "taxonomy"。
 
   为什么要自己写：
-    1. Hugo 只会为叶子术语生成页面（`categories/技术笔记/前端/`），
-       不会有 `categories/技术笔记/` 这种父级页面；
+    1. Hugo 只会为叶子术语生成页面（`categories/llm-infra/推理框架/`），
+       不会有 `categories/llm-infra/` 这种父级页面；
     2. 主题默认的 taxonomy.html 只是 Alphabetical 平铺列表，没有层级概念。
 
-  分类的层级直接由术语名推导：`技术笔记/前端` 的一级是 `技术笔记`，二级是 `前端`；
+  分类的层级直接由术语名推导：`LLM Infra/推理框架` 的一级是 `LLM Infra`，二级是 `推理框架`；
     `使用说明`（不含斜杠）就是一级分类本身，没有二级。
   所以笔记的 front matter 不需要任何额外字段，只写 categories: ["一级/二级"] 即可。
+
+  ⚠️ 显示名必须取 .Page.Title，不能取 .Name。
+    实测同一项的两个字段：
+        .Name       = "llm infra/推理框架"   ← 小写，这是生成 URL 的 slug
+        .Page.Title = "LLM Infra/推理框架"   ← front matter 里写的原始大小写
+     取 .Name 会把分类名显示成全小写。
+
+  ⚠️ 二级分类的显示不能加 "有多个子项才显示" 这类条件。
+     只有一个二级分类时它同样要出现 —— 之前的写法正是被这个条件藏掉的。
 
   单个分类的文章列表页（Kind = "term"）用的是 layouts/_default/term.html。
 */ -}}
@@ -30,15 +39,27 @@
 {{- $groups := dict }}
 {{- range .Data.Terms.Alphabetical }}
   {{- $termName := .Name }}
-  {{- $parts := split $termName "/" }}
-  {{- $top := index $parts 0 }}
+  {{- /* 显示名用 .Page.Title（保留 front matter 里的大小写），拿不到才退回 .Name。
+         .Name 全小写时会很丑，所以再退一步用 humanize。 */ -}}
+  {{- $termTitle := .Name }}
+  {{- with .Page }}{{ with .Title }}{{ $termTitle = . }}{{ end }}{{ end }}
+  {{- if eq $termTitle $termName }}{{ $termTitle = humanize $termName }}{{ end }}
+
+  {{- $nameParts := split $termTitle "/" }}
+  {{- $top := index $nameParts 0 }}
+
   {{- $sub := "" }}
-  {{- if gt (len $parts) 1 }}
-    {{- $sub = delimit (after 1 $parts) "/" }}
+  {{- $subName := "" }}
+  {{- if gt (len $nameParts) 1 }}
+    {{- $sub = delimit (after 1 $nameParts) "/" }}
+    {{- $subName = delimit (after 1 (split $termName "/")) "/" }}
   {{- end }}
+
   {{- $existing := index $groups $top | default slice }}
   {{- $groups = merge $groups (dict $top ($existing | append (dict
-        "term" $termName "sub" $sub "count" .Count "page" (.Page | default (site.GetPage (printf "/%s/%s" $type $termName)))))) }}
+        "term" $termName "title" $termTitle "sub" $sub "subName" $subName
+        "count" .Count
+        "page" (.Page | default (site.GetPage (printf "/%s/%s" $type $termName)))))) }}
 {{- end }}
 
 {{- if eq (len $groups) 0 }}
@@ -62,18 +83,28 @@
     {{- end }}
     {{- $posts = sort $posts "Date" "desc" }}
 
+    {{- /* 一级分类自己也可能有一篇同名术语页（front matter 里把一级也单独列出来时），
+           有就链过去，没有就链到分类总览页 —— 不要留一个点不动的标题。 */ -}}
+    {{- $parentPage := site.GetPage (printf "/%s/%s" $type (index $items 0).term) }}
+    {{- if not $parentPage }}{{ $parentPage = site.GetPage (printf "/%s/%s" $type $top) }}{{ end }}
+
     <section class="cat-group">
       <header class="cat-group-head">
-        <h2 class="cat-group-title">{{ $top }}</h2>
+        <h2 class="cat-group-title">
+          <a href="{{ with $parentPage }}{{ .RelPermalink }}{{ else }}{{ printf "/%s/" $type | relURL }}{{ end }}">{{ $top }}</a>
+        </h2>
         <span class="cat-group-count">{{ len $posts }} 篇</span>
       </header>
 
-      {{- if gt (len $items) 1 }}
+      {{- /* 二级分类：只要这个一级分类下写了带斜杠的术语就显示，哪怕只有一个 */ -}}
+      {{- $subs := slice }}
+      {{- range $items }}
+        {{- if .sub }}{{ $subs = $subs | append . }}{{ end }}
+      {{- end }}
+      {{- if $subs }}
       <ul class="cat-subs">
-        {{- range $items }}
-          {{- if .sub }}
+        {{- range $subs }}
           <li><a href="{{ with .page }}{{ .RelPermalink }}{{ else }}{{ printf "/%s/%s/" $type .term | relURL }}{{ end }}">{{ .sub }}</a><span>{{ .count }}</span></li>
-          {{- end }}
         {{- end }}
       </ul>
       {{- end }}
