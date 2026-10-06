@@ -1,65 +1,139 @@
 /* ============================================================
    文章页右侧「固定跟随」目录栏
-   由 .github/build/ 挂进主题的 assets/css/extended/，
-   会被 PaperMod 自动合并进主样式表（它用 resources.Match 收这个目录）。
 
-   结构依据（PaperMod v8 的文章页直接子元素）：
-     article.post-single
-       ├─ header.post-header     标题 + 面包屑 + meta
-       ├─ details.toc            目录块
-       └─ div.post-content       正文
+   结构依据（PaperMod v8 的文章页）：
+     main.main                         ← 定宽容器，margin:auto 居中
+       └─ article.post-single
+            ├─ header.post-header     标题 + 面包屑 + meta
+            ├─ details.toc            目录块（DOM 里在正文**之前**）
+            └─ div.post-content       正文
 
-   宽屏时把 .toc 放到右列，与正文**同一行**，然后 sticky 跟随滚动。
-   窄屏（< 1100px）完全不动，保持主题原本的折叠样式。
+   ── 这一版要守住的两条 ─────────────────────────────────────
+   1) 正文必须在**页面正中**。
+   2) 目录栏挂在正文右侧，不许把正文挤偏、不许压住正文、不许越出视口。
 
-   踩过的坑：一开始给 .toc 写 grid-row: 1 / -1，结果它落进了标题那一行，
-   出现在标题上方。必须显式指定到第 2 行（正文所在行）。
+   ✅ 做法：article 用「左右完全对称」的三列网格，中间那列才是正文：
+         [空列 360px] [正文 1fr] [目录 360px]
+     两侧等宽 ⇒ 正文列落在页面中线上。
+     DOM 里 .toc 排在 .post-content 前面，天然占第 1 列，
+     所以把它显式挪到第 3 列，第 1 列就空出来了。
+
+   ⚠️ 踩过的坑（一）：最早把 .toc 做成普通的两列网格
+   （grid-template-columns: minmax(0,1fr) 240px + 标题跨列）。
+   后果：正文被压到 448px；而且**居中的是整个 article 盒子**，
+   正文只占它左半边 —— 整块文字明显偏左。用户报的"正文没有居中"就是这个。
+
+   ⚠️ 踩过的坑（二）：网格必须**给定宽**（width: 1440px + auto 外边距居中）。
+     只写 fit-content 时，网格按 max-content 定尺寸，富余空间不会进轨道，
+     量出来正文恒定偏左 20px。给成定宽后轨道尺寸是确定的：
+     1fr = 1440 - 360*2 = 720，正好就是正文列宽，居中偏差实测 0.0px。
+     main.main 的 max-width 同步放宽，否则主题那条 768px 上限会把 article
+     压到 720px，网格再对称也没地方放目录。
+
+   ⚠️ 踩过的坑（三）：间距不用 column-gap，折进目录自己的 padding-inline-start。
+     用 column-gap 的话，"等宽轨道 + gap"会让正文右边界离容器右边多出一个 gap，
+     对称性又被破坏（同样表现为偏左 gap/2）。
+
+   ⚠️ 踩过的坑（四）：试过 .toc 用 position:absolute + left:100% 脱离文档流。
+       absolute 下 left:100% 正常；但配 position:sticky 后 left 完全不可靠 ——
+       同一个 left:720px：
+         position:absolute → 左缘 1176.5px（对，相对包含块）
+         position:sticky   → 左缘  720.0px（被当成视口坐标，错）
+       而我们要的正是「sticky 跟随滚动」，所以只能靠网格列定位，
+       left/top 里只留 top 给 sticky。
+
+   ⚠️ 踩过的坑（五）：网格里如果给 .toc 写 grid-row: 1 / -1，
+   它会落进标题那一行、跑到标题上方。必须显式写第 2 行（正文那一行）。
+
+   ⚠️ 踩过的坑（六，最阴的一个）：Hugo 压缩 CSS 会把 `)` 后面的空格**无条件**删掉，
+   而 grid-template-columns 里 `)` 后跟字面量恰好非法 —— 于是整条声明作废：
+
+       360px minmax(0, 1fr) 360px   →  360px minmax(0,1fr)360px   ❌ 轨道粘连
+       minmax(0, 1fr) 240px         →  minmax(0,1fr)240px         ❌
+       1fr var(--w)                 →  1fr var(--w)               ✅（`(` 后安全）
+       var(--w) 1fr                 →  var(--w)1fr                ❌
+       repeat(2, var(--w)) 3rem     →  repeat(2,var(--w))3rem      ❌
+
+   作废的后果是**静默**的：网格退回单列、目录压在正文里，不报错也不警告。
+   所以下面的 grid-template-columns 只由「不带括号的字面量」加
+   `minmax(0, 1fr)` 组成，并且 `minmax(...)` 后面必须紧跟 `1fr`。
+   wsl-verify.sh 里有一条断言专门盯这种"压坏了的粘连 token"。
+
+   ⚠️ 踩过的坑（七）：断点不能只看"目录放得下"，还要看"正文还能不能保持 720px"。
+     定宽网格要 1440px + main 两侧 padding 48px = 1488px 才完整。
+     视口小于 1488px 时 article 被压窄，正文列会跟着缩水
+     （实测 1353px 视口下正文只剩 585px）。所以断点取 1536px：
+     Windows 上 html 常驻滚动条约 16px，1536 - 16 = 1520 > 1488，留有余量。
+
+   实测（headless Edge，真实视口）：
+       1568px：轨道 [360, 720, 360]，正文 720px，居中偏差 0.0px，无横向滚动
+       1520px：轨道 [360, 720, 360]，正文 720px，居中偏差 0.0px
+       1200px：低于断点，目录退回主题的折叠样式，无横向滚动
    ============================================================ */
 
-@media (min-width: 1100px) {
+@media (min-width: 1536px) {
+  /* 定宽网格总宽 = 360(空列) + 720(正文) + 360(目录)。
+     main 是 border-box，所以 max-width 要再加上主题的左右 padding。
+     ⚠️ 这里的 var() 都在 calc() 里，压缩是安全的。 */
+  main.main:has(> article.post-single) {
+    max-width: calc(1440px + var(--gap) * 2);
+  }
+
   article.post-single {
+    /* 定宽 + 自动外边距居中：两侧轨道等宽，正文列因此精确居中 */
+    width: 1440px;
+    max-width: 100%;
+    margin-inline: auto;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 240px;
-    column-gap: 2.5rem;
+    /* ⚠️ 只许无括号字面量，且 minmax() 后紧跟 1fr，见「踩过的坑（六）」 */
+    grid-template-columns: 360px minmax(0, 1fr) 360px;
     align-items: start;
   }
 
-  /* 标题占满整行 */
+  /* 标题占满整行（否则会被第一个网格单元 = 左边那条空列接走，挤成一条细缝） */
   article.post-single > .post-header {
     grid-column: 1 / -1;
     grid-row: 1;
   }
 
-  /* 正文：左列，与目录同一行 */
+  /* 正文：中间那列，与目录同一行 */
   article.post-single > .post-content {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 2;
     min-width: 0;
   }
 
-  /* 目录：右列，固定跟随滚动 */
+  /* 目录：第 3 列（DOM 顺序在正文前，显式挪到最右），固定跟随滚动。
+     视觉间距靠自己的 padding-inline-start 造，不用 column-gap（见「踩过的坑（三）」）。 */
   article.post-single > .toc {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 2;
     position: sticky;
     top: 84px;
-    align-self: start;
     max-height: calc(100vh - 7rem);
     overflow-y: auto;
     overscroll-behavior: contain;
     margin: 0;
+    padding-inline-start: 2.5rem;
     font-size: 0.9rem;
     line-height: 1.5;
+
+    /* 主题把 details.toc 画成了带背景和边框的色块（那是给"折叠在正文上方"用的）。
+       挂在侧边时改成一条纯竖线，更像目录。 */
+    background: none;
+    border: 0;
+    border-radius: 0;
   }
 
   article.post-single > .toc .inner {
-    padding-inline-start: 0.75rem;
+    margin: 0;
+    padding: 0 0 0 0.75rem;
     border-inline-start: 1px solid var(--border);
   }
 
   article.post-single > .toc summary {
+    padding: 0 0 0 0.75rem;
     margin-bottom: 0.5rem;
-    cursor: pointer;
   }
 
   /* 目录很长时用细滚动条，别喧宾夺主 */
@@ -71,9 +145,18 @@
     border-radius: 3px;
   }
 
-  /* 其余直接子元素（上下篇导航、评论等）回到整行，落在正文下方 */
+  /* 其余直接子元素（上下篇导航、评论等）落在正文下方，占正文 + 目录两列。
+     必须显式写第 2 列起，否则会被第 1 列（空列）接走、挤成一条细缝。 */
   article.post-single > *:not(.post-header):not(.post-content):not(.toc) {
-    grid-column: 1 / -1;
+    grid-column: 2 / -1;
     grid-row: 3;
+  }
+}
+
+/* 低于断点时目录不在侧栏（走主题的折叠样式，展开在正文上方）。
+   这一档 main 的宽度必须显式还原 —— 否则 :has() 那条放宽规则会在窄屏继续生效。 */
+@media (max-width: 1535px) {
+  main.main:has(> article.post-single) {
+    max-width: calc(var(--main-width) + var(--gap) * 2);
   }
 }
