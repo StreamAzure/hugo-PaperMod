@@ -1,14 +1,31 @@
+{{- /* 首页的个人介绍块。
+       只由 list.html 在 .IsHome 且第一页时调用。
+
+       字段（都在 hugo.yaml 的 params.homeInfoParams 下，除最后一项外都可省略）：
+         avatar 头像。绝对 URL 直接用；否则当作站点根目录下的静态文件（static/ 里）
+         title  小标题。顶部导航栏已经显示站点名，通常留空
+         Content 自述。按 markdown 渲染，空行分段，多段会渲染成多个 <p>
+       没写 Content 时退回 site.Params.description，这样 <meta name="description">
+       与首页介绍是同一句话，改一处即可。
+       社交图标来自 params.socialIcons。 */ -}}
+{{- $intro := "" }}
+{{- with site.Params.homeInfoParams }}{{ $intro = .Content | default site.Params.description }}{{ end }}
 {{- with site.Params.homeInfoParams }}
 <article class="first-entry home-info">
-    <header class="entry-header">
-        <h1>{{ .Title | markdownify }}</h1>
-    </header>
-    <div class="entry-content md-content">
-        {{ $opts := dict "display" "block" }}
-        {{ .Content | $.Page.RenderString $opts }}
+    <div class="home-info-inner">
+        {{- with .avatar }}
+        <img class="home-avatar" src="{{ if (urls.Parse .).IsAbs }}{{ . }}{{ else }}{{ . | relURL }}{{ end }}"
+            alt="{{ site.Title }}" width="112" height="112">
+        {{- end }}
+        {{- with .title }}
+        <h1 class="home-title">{{ . | markdownify }}</h1>
+        {{- end }}
+        {{- with $intro }}
+        <div class="entry-content md-content">
+            {{ $.Page.RenderString (dict "display" "block") . }}
+        </div>
+        {{- end }}
+        {{- partial "social_icons.html" -}}
     </div>
-    <footer class="entry-footer">
-        {{ partial "social_icons.html" (dict "align" site.Params.homeInfoParams.AlignSocialIconsTo) }}
-    </footer>
 </article>
 {{- end -}}
