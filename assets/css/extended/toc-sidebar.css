@@ -131,6 +131,31 @@
     border-inline-start: 1px solid var(--border);
   }
 
+  /* 首项与 summary 之间也留一点，不然"目录"标题贴着第一条 */
+  article.post-single > .toc .inner > ul:first-child {
+    padding-top: 0.35rem;
+  }
+
+  /* 各级标题的行间距。
+     主题里 `.toc .inner` 一条间距规则都没有（`details .inner` 只给 margin/padding），
+     目录项因此是紧贴的。挂到侧栏后行更短、行数更多，更需要靠间距分出层级。
+     只用 margin-top 管同级，层级那一层用 padding —— 原因见下面 ⚠️。 */
+  article.post-single > .toc li {
+    margin-top: 0.55rem;
+  }
+  /* 「下面还挂着子项」的那一级再多给一点，让分组边界看得出来 */
+  article.post-single > .toc li:has(> ul) {
+    margin-top: 0.9rem;
+  }
+  /* ⚠️ 这里必须是 padding-top，不能写 margin-top。
+     子列表的 margin 会和它第一个 li 的 margin **折叠**，取两者最大值：
+     实测 ul 给 0.5rem、li 有 0.55rem，最后只剩 0.55rem（8.8px），
+     于是"父项→子项"的间距跟"同级相邻"一模一样（都是 10.41px），层级完全看不出来。
+     padding 不参与折叠，才能真的叠加。 */
+  article.post-single > .toc li > ul {
+    padding-top: 0.5rem;
+  }
+
   article.post-single > .toc summary {
     padding: 0 0 0 0.75rem;
     margin-bottom: 0.5rem;
